@@ -1,0 +1,37 @@
+name: Request Copilot review on Dependabot PRs
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  request-review:
+    name: Request Copilot review
+    runs-on: ubuntu-latest
+    if: |
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.draft == false
+
+    steps:
+      - name: Request Copilot review
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prId = context.payload.pull_request.node_id;
+
+            try {
+              await github.graphql(`
+                mutation RequestCopilotReview($prId: ID!) {
+                  requestCopilotReview(input: { pullRequestId: $prId }) {
+                    pullRequest { id }
+                  }
+                }
+              `, { prId });
+              core.notice('Requested a Copilot review for this Dependabot PR.');
+            } catch (error) {
+              core.setFailed(`Failed to request Copilot review: ${error.message}`);
+            }
